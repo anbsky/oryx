@@ -35,11 +35,11 @@ class Feed(object):
 
     def fetch(self):
         links_page = Page(self.list_url)
-        for page in links_page.produce_pages_from_links(self.selectors['links']):
+        for page in links_page.produce_pages_from_links(self.selectors['links'], limit=2):
             post = Post()
             post.url = page.url
             post.title = page.get_text(self.selectors['title'])
-            post.body = page.get_text(self.selectors['body'])
+            post.body = page.get_html(self.selectors['body'])
             post.updated = parser.parse(page.get_text(self.selectors['date']))
             post.author_name = page.get_text(self.selectors['author'])
             post.set_atom_id()
@@ -68,8 +68,10 @@ class Page(object):
     def parse(self, url):
         return html.parse(url).getroot()
 
-    def produce_pages_from_links(self, selector):
+    def produce_pages_from_links(self, selector, limit=None):
         links = list(self.get_links(selector))
+        if limit:
+            links = links[:limit]
         total_links = len(links)
         for i, url in enumerate(links, 1):
             yield Page(self.make_full_url(url))
@@ -87,7 +89,7 @@ class Page(object):
             yield getter(item) if getter else item
 
     def get_html(self, selector):
-        return etree.tostring(self.html.cssselect(selector))
+        return etree.tostring(self.html.cssselect(selector)[0])
 
 
 class Post(object):
@@ -110,3 +112,6 @@ class Post(object):
 
     def __unicode__(self):
         return u'Post: {}'.format(self.title)
+
+    def __str__(self):
+        return unicode(self).encode('utf-8')
