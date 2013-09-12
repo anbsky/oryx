@@ -12,7 +12,7 @@
         <title>{{ post.title }}</title>
         <link href="{{ post.url }}"/>
         <id>{{ post.atom_id }}</id>
-        <updated>{{ post.updated }}</updated>
+        <updated>{{ post.updated_str }}</updated>
         <!-- <summary type='html'></summary> -->
         <content type='html'>{{ post.body }}</content>
         <author>
