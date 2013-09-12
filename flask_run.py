@@ -44,7 +44,7 @@ feeds = {
     }, title='The Macalope')
 }
 
-@app.route('/<site_name>/feed.xml')
+@app.route('/<site_name>/')
 def feed(site_name):
     @after_this_request
     def add_header(response):
