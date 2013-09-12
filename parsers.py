@@ -7,6 +7,11 @@ from urlparse import urlparse
 from urlparse import urljoin
 from dateutil import parser
 import time
+from datetime import datetime
+
+
+def date_to_atom(date):
+    return date.replace(microsecond=0).isoformat('T')
 
 
 class Feed(object):
@@ -23,6 +28,7 @@ class Feed(object):
     id = None
     root_url = None
     list_url = None
+    updated = None
 
     def __init__(self, list_url, selectors):
         self.list_url = list_url
@@ -32,6 +38,7 @@ class Feed(object):
         assert 'date' in selectors
         assert 'author' in selectors
         self.selectors = selectors
+        self.updated = date_to_atom(datetime.now())
 
     def fetch(self):
         links_page = Page(self.list_url)
@@ -101,14 +108,20 @@ class Post(object):
     body = None
     author_name = None
     author_email = None
+    inner_id = None
 
     def make_atom_id(self):
         assert self.url
         assert self.updated
-        return md5(self.url + str(self.updated))
+        slug = self.inner_id if self.inner_id else self.url
+        return md5(slug).hexdigest()
 
     def set_atom_id(self):
         self.atom_id = self.make_atom_id()
+
+    @property
+    def updated_str(self):
+        return date_to_atom(self.updated)
 
     def __unicode__(self):
         return u'Post: {}'.format(self.title)
