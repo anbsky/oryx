@@ -1,11 +1,12 @@
 # encoding=utf-8
 
 from lxml import html
-from lxml import tostring
+from lxml import etree
 from md5 import md5
 from urlparse import urlparse
 from urlparse import urljoin
 from dateutil import parser
+import time
 
 
 class Feed(object):
@@ -31,25 +32,16 @@ class Feed(object):
         assert 'date' in selectors
         assert 'author' in selectors
         self.selectors = selectors
-        self.root_url = self.get_root_url(list_url)
-
-    def get_root_url(self, url):
-        location = urlparse(list_url)
-        return '{}://{}'.format(location.scheme, location.netloc)
-
-    def make_full_url(path):
-        return urljoin(self.root_url, path)
 
     def fetch(self):
         links_page = Page(self.list_url)
-        for link in links_page.get_links(self.selectors['links']):
-            page = Page(self.make_full_url(link))
+        for page in links_page.produce_pages_from_links(self.selectors['links']):
             post = Post()
             post.url = page.url
-            post.title = post.get_text(self.selectors['title'])
-            post.body = post.get_text(self.selectors['body'])
-            post.updated = post.get_text(self.selectors['date'])
-            post.author_name = post.get_text(self.selectors['author'])
+            post.title = page.get_text(self.selectors['title'])
+            post.body = page.get_text(self.selectors['body'])
+            post.updated = parser.parse(page.get_text(self.selectors['date']))
+            post.author_name = page.get_text(self.selectors['author'])
             post.set_atom_id()
             yield post
 
@@ -61,23 +53,40 @@ class Page(object):
 
     def __init__(self, url, sleep=2):
         self.url = url
+        self.root_url = self.get_root_url(url)
         self.html = self.parse(url)
         self.sleep = sleep
+
+    @classmethod
+    def get_root_url(cls, url):
+        location = urlparse(url)
+        return '{}://{}'.format(location.scheme, location.netloc)
+
+    def make_full_url(self, path):
+        return urljoin(self.root_url, path) if not urlparse(path).netloc else path
 
     def parse(self, url):
         return html.parse(url).getroot()
 
-    def get_text(selector):
+    def produce_pages_from_links(self, selector):
+        links = list(self.get_links(selector))
+        total_links = len(links)
+        for i, url in enumerate(links, 1):
+            yield Page(self.make_full_url(url))
+            if total_links > i and self.sleep:
+                time.sleep(self.sleep)
+
+    def get_text(self, selector):
         return self.html.cssselect(selector)[0].text
 
-    def get_links(selector):
+    def get_links(self, selector):
         return self.get_list(selector, lambda l: l.attrib.get('href'))
 
-    def get_list(selector, getter=None):
+    def get_list(self, selector, getter=None):
         for item in self.html.cssselect(selector):
             yield getter(item) if getter else item
 
-    def get_html(selector):
+    def get_html(self, selector):
         return etree.tostring(self.html.cssselect(selector))
 
 
@@ -93,8 +102,8 @@ class Post(object):
 
     def make_atom_id(self):
         assert self.url
-        assert self.date
-        return md5(self.url + str(self.date))
+        assert self.updated
+        return md5(self.url + str(self.updated))
 
     def set_atom_id(self):
         self.atom_id = self.make_atom_id()
