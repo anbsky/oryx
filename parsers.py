@@ -2,18 +2,20 @@
 
 from lxml import html
 from lxml import etree
+from xml.sax.saxutils import escape
 from md5 import md5
 from urlparse import urlparse
 from urlparse import urljoin
 from dateutil import parser
 import time
 from datetime import datetime
+from urllib2 import urlopen
 
 from cache import cache
 
 
 def date_to_atom(date):
-    return date.replace(microsecond=0).isoformat('T')
+    return date.replace(microsecond=0).isoformat('T') + 'Z'
 
 
 class Feed(object):
@@ -84,7 +86,8 @@ class Page(object):
         return urljoin(self.root_url, path) if not urlparse(path).netloc else path
 
     def parse(self, url):
-        return html.parse(url).getroot()
+        page = urlopen(url).read().decode('utf-8')
+        return html.fromstring(page)
 
     def produce_pages_from_links(self, selector, limit=None, check_cache=None):
         links = list(self.get_links(selector))
@@ -110,7 +113,10 @@ class Page(object):
             yield getter(item) if getter else item
 
     def get_html(self, selector):
-        return etree.tostring(self.html.cssselect(selector)[0])
+        return etree.tostring(
+            self.html.cssselect(selector)[0],
+            pretty_print=True, encoding=unicode, method='html'
+        )   
 
 
 class Post(object):
@@ -131,7 +137,7 @@ class Post(object):
         post = Post()
         post.url = page.url
         post.title = page.get_text(selectors['title'])
-        post.body = page.get_html(selectors['body'])
+        post.body = escape(page.get_html(selectors['body']))
         post.updated = parser.parse(page.get_text(selectors['date']))
         post.author_name = page.get_text(selectors['author'])
         post.set_atom_id()
