@@ -11,6 +11,23 @@ from parsers import Feed
 
 app = Flask(__name__)
 
+
+class Config(object):
+    DEBUG = True
+    TESTING = True
+    SERVER_PORT = 5000
+
+
+class ProductionConfig(object):
+    DEBUG = False
+    TESTING = False
+    SERVER_PORT = 8110
+
+
+config_object = ProductionConfig if 'PRODUCTION' in os.environ else Config
+app.config.from_object(config_object)
+
+
 prev_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if not prev_dir in sys.path:
     sys.path.append(prev_dir)
@@ -47,4 +64,4 @@ def feed(site_name):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(app.config.get('SERVER_NAME'), app.config.get('SERVER_PORT'), debug=True)
