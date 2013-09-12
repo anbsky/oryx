@@ -29,8 +29,9 @@ class Feed(object):
     root_url = None
     list_url = None
     updated = None
+    title = None
 
-    def __init__(self, list_url, selectors):
+    def __init__(self, list_url, selectors, title=None):
         self.list_url = list_url
         assert 'links' in selectors
         assert 'title' in selectors
@@ -39,6 +40,7 @@ class Feed(object):
         assert 'author' in selectors
         self.selectors = selectors
         self.updated = date_to_atom(datetime.now())
+        self.title = title
 
     def fetch(self):
         links_page = Page(self.list_url)
