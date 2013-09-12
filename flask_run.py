@@ -3,7 +3,7 @@
 
 import os
 import sys
-from flask import Flask, after_this_request
+from flask import Flask, after_this_request, abort, request, url_for
 from jinja2 import Environment, PackageLoader
 from parsers import Feed
 
@@ -16,6 +16,15 @@ if not prev_dir in sys.path:
 
 env = Environment(loader=PackageLoader('oryx', 'templates'))
 
+feeds = {
+    'macalope': Feed('http://www.macworld.com/author/The-Macalope/', {
+        'links': 'div.landing-listing > div.excerpt > a',
+        'title': 'article h1',
+        'body': 'article section.page',
+        'date': 'article .article-meta [itemprop="datePublished"]',
+        'author': 'article .author-info h3'
+    }, title='The Macalope')
+}
 
 @app.route('/<site_name>/feed.xml')
 def feed(site_name):
@@ -24,20 +33,15 @@ def feed(site_name):
         response.headers['Content-type'] = 'application/atom+xml'
         return response
 
-    feed = Feed('http://www.macworld.com/author/The-Macalope/', {
-        'links': 'div.landing-listing > div.excerpt > a',
-        'title': 'article h1',
-        'body': 'article section.page',
-        'date': 'article .article-meta [itemprop="datePublished"]',
-        'author': 'article .author-info h3'
-    })
+    try:
+        feed = feeds[site_name]
+    except KeyError:
+        abort(404)
 
     template = env.get_template('atom.xml')
     return template.render(
-        site_title='The Macalope', site_url='http://oryx.vr2.net/', 
-        feed_url='http://oryx.vr2.net/{}/feed.xml'.format(site_name),
-        updated=feed.updated, articles=feed.fetch(),
-        feed_id='http://oryx.vr2.net/{}/'.format(site_name)
+        site_title=feed.title, site_url=request.url_root, feed_url=request.base_url,
+        updated=feed.updated, articles=feed.fetch(), feed_id=request.base_url
     )
 
 
