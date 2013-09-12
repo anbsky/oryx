@@ -9,6 +9,8 @@ from dateutil import parser
 import time
 from datetime import datetime
 
+from cache import cache
+
 
 def date_to_atom(date):
     return date.replace(microsecond=0).isoformat('T')
@@ -43,16 +45,23 @@ class Feed(object):
         self.title = title
 
     def fetch(self):
-        links_page = Page(self.list_url)
-        for page in links_page.produce_pages_from_links(self.selectors['links'], limit=2):
-            post = Post()
-            post.url = page.url
-            post.title = page.get_text(self.selectors['title'])
-            post.body = page.get_html(self.selectors['body'])
-            post.updated = parser.parse(page.get_text(self.selectors['date']))
-            post.author_name = page.get_text(self.selectors['author'])
-            post.set_atom_id()
+        home = Page(self.list_url)
+        for url, page in home.produce_pages_from_links(self.selectors['links'], check_cache=self.check_cache):
+            if page is None:
+                post = Post.from_dict(self.get_from_cache(url))
+            else:
+                post = Post.from_raw_page(page, self.selectors)
+                self.save_to_cache(url, post.to_dict())
             yield post
+
+    def check_cache(self, url):
+        return cache.find({'url': url}).count()
+
+    def get_from_cache(self, url):
+        return cache.find_one({'url': url})
+
+    def save_to_cache(self, url, post):
+        cache.update({'url': url}, post, upsert=True)
 
 
 class Page(object):
@@ -77,21 +86,24 @@ class Page(object):
     def parse(self, url):
         return html.parse(url).getroot()
 
-    def produce_pages_from_links(self, selector, limit=None):
+    def produce_pages_from_links(self, selector, limit=None, check_cache=None):
         links = list(self.get_links(selector))
         if limit:
             links = links[:limit]
         total_links = len(links)
         for i, url in enumerate(links, 1):
-            yield Page(self.make_full_url(url))
-            if total_links > i and self.sleep:
-                time.sleep(self.sleep)
+            if check_cache and not check_cache(url):
+                yield url, Page(url)
+                if total_links > i and self.sleep:
+                    time.sleep(self.sleep)
+            else:
+                yield url, None
 
     def get_text(self, selector):
         return self.html.cssselect(selector)[0].text
 
     def get_links(self, selector):
-        return self.get_list(selector, lambda l: l.attrib.get('href'))
+        return self.get_list(selector, lambda l: self.make_full_url(l.attrib.get('href')))
 
     def get_list(self, selector, getter=None):
         for item in self.html.cssselect(selector):
@@ -112,6 +124,29 @@ class Post(object):
     author_email = None
     inner_id = None
 
+    cacheable_fields = 'url title body updated author_name atom_id inner_id'.split()
+
+    @classmethod
+    def from_raw_page(cls, page, selectors):
+        post = Post()
+        post.url = page.url
+        post.title = page.get_text(selectors['title'])
+        post.body = page.get_html(selectors['body'])
+        post.updated = parser.parse(page.get_text(selectors['date']))
+        post.author_name = page.get_text(selectors['author'])
+        post.set_atom_id()
+        return post
+
+    @classmethod
+    def from_dict(cls, data):
+        post = Post()
+        for f in cls.cacheable_fields:
+            setattr(post, f, data[f])
+        return post        
+
+    def to_dict(self):
+        return {f: getattr(self, f) for f in self.cacheable_fields}
+
     def make_atom_id(self):
         assert self.url
         assert self.updated
@@ -123,10 +158,15 @@ class Post(object):
 
     @property
     def updated_str(self):
-        return date_to_atom(self.updated)
+        return date_to_atom(self.updated) if self.updated else ''
+
+    @property
+    def created_str(self):
+        return date_to_atom(self.created) if self.created else ''
 
     def __unicode__(self):
         return u'Post: {}'.format(self.title)
 
     def __str__(self):
         return unicode(self).encode('utf-8')
+
