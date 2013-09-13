@@ -2,6 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
  
     <title>{{ site_title }}</title>
+    <icon>{{ site_url }}static/oryx.jpg</icon>
     <link href="{{ feed_url }}" rel="self"/>
     <link href="{{ site_url }}"/>
     <updated>{{ updated }}</updated>
