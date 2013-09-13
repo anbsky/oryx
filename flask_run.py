@@ -3,7 +3,8 @@
 
 import os
 import sys
-from flask import Flask, after_this_request, abort, request, url_for
+import flask
+from flask import Flask, after_this_request, abort, request, url_for, current_app
 from jinja2 import Environment, PackageLoader
 
 from parsers import Feed
@@ -16,12 +17,14 @@ class Config(object):
     DEBUG = True
     TESTING = True
     SERVER_PORT = 5000
+    # SERVER_NAME = 'localhost'
 
 
 class ProductionConfig(object):
     DEBUG = False
     TESTING = False
     SERVER_PORT = 8110
+    # SERVER_NAME = 'oryx.vr2.net'
 
 
 config_object = ProductionConfig if 'PRODUCTION' in os.environ else Config
@@ -44,6 +47,12 @@ feeds = {
     }, title='The Macalope')
 }
 
+
+@app.route('/favicon.ico')
+def favicon():
+    return flask.send_file('static/oryx.jpg')
+
+
 @app.route('/<site_name>/')
 def feed(site_name):
     @after_this_request
@@ -62,6 +71,10 @@ def feed(site_name):
         updated=feed.updated, articles=feed.fetch(), feed_id=request.base_url
     )
 
+# with app.app_context():
+#     app.add_url_rule('/favicon.ico',
+#                      redirect_to=url_for('static', filename='oryx.jpg'))
+
 
 if __name__ == "__main__":
-    app.run(app.config.get('SERVER_NAME'), app.config.get('SERVER_PORT'), debug=True)
+    app.run(port=app.config.get('SERVER_PORT'), debug=app.config.get('DEBUG'))
