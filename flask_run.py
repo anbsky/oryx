@@ -16,7 +16,7 @@ app = Flask(__name__)
 class Config(object):
     DEBUG = True
     TESTING = True
-    SERVER_PORT = 5000
+    SERVER_PORT = 8110
     # SERVER_NAME = 'localhost'
 
 
