@@ -48,7 +48,8 @@ class Feed(object):
 
     def fetch(self):
         home = Page(self.list_url)
-        for url, page in home.produce_pages_from_links(self.selectors['links'], check_cache=self.check_cache):
+        for url, page in home.produce_pages_from_links(
+                self.selectors['links'], check_cache=self.check_cache):
             if page is None:
                 post = Post.from_dict(self.get_from_cache(url))
             else:

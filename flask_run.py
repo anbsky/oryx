@@ -43,7 +43,7 @@ feeds = {
         'title': 'article h1',
         'body': 'article section.page',
         'date': 'article .article-meta [itemprop="datePublished"]',
-        'author': 'article .author-info h3'
+        'author': 'article .author-name span'
     }, title='The Macalope')
 }
 
